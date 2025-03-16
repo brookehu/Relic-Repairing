@@ -19,8 +19,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    public GameObject Background;
-    public GameObject Desk;
     public GameObject[] Items;
     public GameObject[] ProgressBar;
 
@@ -41,8 +39,6 @@ public class UIManager : MonoBehaviour
 
     public void hideAllUI()
     {
-        Background.SetActive(false);
-        Desk.SetActive(false);
         for (int i = 0; i < ProgressBar.Length; i++)
         {
             ProgressBar[i].SetActive(false);
@@ -55,8 +51,7 @@ public class UIManager : MonoBehaviour
     }
     public void FirstShowUI()
     {
-        Background.SetActive(true);
-        Desk.SetActive(true);
+
         for (int i = 0; i < ProgressBar.Length; i++)
         {
             ProgressBar[i].SetActive(false);

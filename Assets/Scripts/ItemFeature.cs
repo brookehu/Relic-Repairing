@@ -1,61 +1,145 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-public class ItemFeature : MonoBehaviour
+[RequireComponent(typeof(SpriteRenderer))]
+[RequireComponent(typeof(Collider2D))]
+public class ItemFeatures : MonoBehaviour
 {
-    private bool isDragging = false;
-    private Vector3 offset;
-    private Rigidbody rb;
+    [Header("Drag Settings")]
+    
+    [Header("Collision Settings")]
+    [Tooltip("可碰撞的层级")]
+    public LayerMask collisionLayers;
 
-    void Start()
+    private Vector3 offset;
+    private bool isDragging = false;
+    private float originalZ;
+    private Collider2D thisCollider;
+    private List<Collider2D> currentCollisions = new List<Collider2D>();
+
+    void Awake()
     {
-        // 获取物体的 Rigidbody 组件
-        rb = GetComponent<Rigidbody>();
-        if (rb == null)
+        thisCollider = GetComponent<Collider2D>();
+        originalZ = transform.position.z;
+        
+        if (!GetComponent<Rigidbody2D>())
         {
-            rb = gameObject.AddComponent<Rigidbody>();
+            var rb = gameObject.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Kinematic;
         }
     }
 
     void OnMouseDown()
     {
-        // 计算鼠标点击位置与物体中心的偏移量
-        offset = transform.position - GetMouseWorldPosition();
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        offset = transform.position - mouseWorldPos;
+        offset.z = 0;
+    
         isDragging = true;
+        thisCollider.enabled = false;
+    }
 
-        // 禁用重力以便拖拽
-        rb.useGravity = false;
-        rb.isKinematic = true;
+    void OnMouseDrag()
+    {
+        if (!isDragging) return;
+
+        Vector3 newPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition) + offset;
+        newPosition.z = originalZ;
+        transform.position = newPosition;
+
+        DetectCollisions();
     }
 
     void OnMouseUp()
     {
-        // 恢复重力并启用物理效果
         isDragging = false;
-        rb.useGravity = true;
-        rb.isKinematic = false;
+        thisCollider.enabled = true;
+        ClearAllCollisions();
     }
 
-    void Update()
+    void DetectCollisions()
     {
-        if (isDragging)
+        // 使用碰撞体实际形状进行检测
+        List<Collider2D> hits = new List<Collider2D>();
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.SetLayerMask(collisionLayers);
+        filter.useTriggers = false;
+
+        // 获取当前碰撞体接触的所有碰撞体
+        Physics2D.OverlapCollider(thisCollider, filter, hits);
+
+        // 处理新碰撞
+        foreach (Collider2D hit in hits)
         {
-            // 更新物体位置以跟随鼠标
-            transform.position = GetMouseWorldPosition() + offset;
+            if (hit != thisCollider && !currentCollisions.Contains(hit))
+            {
+                currentCollisions.Add(hit);
+                OnCollisionStart(hit.gameObject);
+            }
+        }
+
+        // 处理结束的碰撞
+        for (int i = currentCollisions.Count - 1; i >= 0; i--)
+        {
+            if (!hits.Contains(currentCollisions[i]))
+            {
+                OnCollisionEnd(currentCollisions[i].gameObject);
+                currentCollisions.RemoveAt(i);
+            }
         }
     }
 
-    void OnCollisionEnter(Collision collision)
+    void ClearAllCollisions()
     {
-        // 碰撞检测逻辑
-        Debug.Log($"Collision detected with {collision.gameObject.name}");
-        // 可根据需求扩展碰撞处理逻辑
+        foreach (var col in currentCollisions)
+        {
+            OnCollisionEnd(col.gameObject);
+        }
+        currentCollisions.Clear();
     }
 
-    private Vector3 GetMouseWorldPosition()
+    void OnCollisionStart(GameObject other)
     {
-        // 将屏幕坐标转换为世界坐标
-        Vector3 mouseScreenPosition = Input.mousePosition;
-        mouseScreenPosition.z = Camera.main.WorldToScreenPoint(transform.position).z;
-        return Camera.main.ScreenToWorldPoint(mouseScreenPosition);
+        Debug.Log($"开始碰撞: {other.name}");
+        other.GetComponent<SpriteRenderer>().color = Color.red;
+        GetComponent<SpriteRenderer>().color = Color.red;
+    }
+
+    void OnCollisionEnd(GameObject other)
+    {
+        Debug.Log($"结束碰撞: {other.name}");
+        other.GetComponent<SpriteRenderer>().color = Color.white;
+        GetComponent<SpriteRenderer>().color = Color.white;
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        // 绘制碰撞体形状
+        if (thisCollider != null)
+        {
+            Gizmos.color = Color.yellow;
+            if (thisCollider is BoxCollider2D box)
+            {
+                Gizmos.DrawWireCube(box.bounds.center, box.bounds.size);
+            }
+            else if (thisCollider is CircleCollider2D circle)
+            {
+                Gizmos.DrawWireSphere(circle.bounds.center, circle.radius);
+            }
+            else if (thisCollider is PolygonCollider2D poly)
+            {
+                for (int i = 0; i < poly.pathCount; i++)
+                {
+                    Vector2[] path = poly.GetPath(i);
+                    for (int j = 0; j < path.Length; j++)
+                    {
+                        Gizmos.DrawLine(
+                            poly.transform.TransformPoint(path[j]),
+                            poly.transform.TransformPoint(path[(j+1)%path.Length])
+                        );
+                    }
+                }
+            }
+        }
     }
 }

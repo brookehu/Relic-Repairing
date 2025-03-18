@@ -10,7 +10,7 @@ public class ItemFeatures : MonoBehaviour
 
     [Header("Item Settings")]
     [Tooltip("如果为true，物体无法被拖拽")]
-    public bool IfFixed = false;
+    public bool IsFixed = false;
     public int type;  // 0-普通物品 1-消耗者
 
     private Vector3 offset;
@@ -31,7 +31,7 @@ public class ItemFeatures : MonoBehaviour
 
     void OnMouseDown()
     {
-        if (IfFixed || !thisCollider.enabled) return;
+        if (IsFixed || !thisCollider.enabled) return;
 
         // 修正z轴坐标为摄像机平面坐标
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(new Vector3(
@@ -52,7 +52,7 @@ public class ItemFeatures : MonoBehaviour
 
     void OnMouseDrag()
     {
-        if (!isDragging || IfFixed || !thisCollider.enabled) return;
+        if (!isDragging || IsFixed || !thisCollider.enabled) return;
 
         // 获取带正确z轴的鼠标坐标
         Vector3 mousePos = Camera.main.ScreenToWorldPoint(new Vector3(
@@ -134,7 +134,7 @@ public class ItemFeatures : MonoBehaviour
     }
 
     void TryConsumeItems()
-{
+    {
         // 创建副本避免枚举时修改集合
         var processingList = new List<Collider2D>(currentCollisions);
         
@@ -145,42 +145,14 @@ public class ItemFeatures : MonoBehaviour
             var otherItem = col.GetComponent<ItemFeatures>();
             if (otherItem != null && otherItem.enabled)
             {
-                ConsumeItem(otherItem);
+                UIManager.instance.ProgressUp();
+                gameObject.SetActive(false);
             }
         }
     }
 
-    void ConsumeItem(ItemFeatures other)
-    {
-        if (this.type == 1 && other.type == 0)
-        {
-            Debug.Log($"消耗发生: {name} -> {other.name}");
-            
-            if (UIManager.instance != null)
-            {
-                UIManager.instance.ProgressUp();
-            }
-            
-            // 先记录需要移除的碰撞体
-            var toRemove = new List<Collider2D>();
-            foreach (var col in currentCollisions)
-            {
-                if (col != null && col.gameObject == other.gameObject)
-                {
-                    toRemove.Add(col);
-                }
-            }
-            
-            // 禁用前先移除碰撞记录
-            foreach (var col in toRemove)
-            {
-                currentCollisions.Remove(col);
-                OnCollisionEnd(col?.gameObject);
-            }
-            
-            gameObject.SetActive(false);
-        }
-    }
+
+
 
     void OnCollisionStart(GameObject other)
     {
@@ -190,8 +162,8 @@ public class ItemFeatures : MonoBehaviour
         var renderer = other.GetComponent<SpriteRenderer>();
         if (renderer != null)
         {
-            renderer.color = Color.red;
-            GetComponent<SpriteRenderer>().color = Color.red;
+            renderer.color = Color.yellow;
+            GetComponent<SpriteRenderer>().color = Color.gray;
         }
     }
 
